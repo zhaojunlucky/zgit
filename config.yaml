@@ -1,0 +1,9 @@
+global:
+  branches:
+    - usr/[^/]+/(?P<ticket>JIRA-\d+)
+  commit:
+    message: "[{{.Ticket}}] {{.Message}}"
+repos:
+  - name: xxx/xxx
+    branches:
+      - usr/[^/]+/(?P<ticket>JIRA-\d+)

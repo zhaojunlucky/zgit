@@ -1,0 +1,87 @@
+name: ZGit CI
+
+on:
+  pull_request:
+    branches: [ "main"]
+    types: [ opened, reopened, synchronize ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.25.4'
+    - name: Download dependencies
+      run: go mod download
+
+    - name: Verify dependencies
+      run: go mod verify
+
+    - name: Build
+      run: go build -v ./...
+
+    - name: Run tests with coverage
+      run: go test -v -race -coverprofile=coverage.out -covermode=atomic -timeout 5m ./...
+
+    - name: Run go vet
+      run: go vet ./...
+
+    - name: Install staticcheck
+      run: go install honnef.co/go/tools/cmd/staticcheck@latest
+
+    - name: Run staticcheck
+      run: staticcheck ./...
+
+    - name: SonarQube Scan
+      uses: Sonarsource/sonarqube-scan-action@v6
+      env:
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+      with:
+        args: >
+          -Dsonar.pullrequest.github.repository=${{ github.repository }}
+          -Dsonar.pullrequest.branch=${{github.event.pull_request.head.ref}}
+          -Dsonar.pullrequest.base=main
+          -Dsonar.pullrequest.key=${{github.event.number}}
+    - name: Build
+      run: |
+        build_date="$(date -u +'%Y-%m-%d')"
+        echo "build apple m1"
+        env GOOS=darwin GOARCH=arm64 go build -tags=prod -ldflags "-X zhaojunlucky/zgit/core.Version=1.0.${{ github.run_number }} -X zhaojunlucky/zgit/core.BuildDate=${build_date}" -o zgit_arm64 -v main.go
+        echo "build amd64"
+        env GOOS=linux GOARCH=amd64 go build -tags=prod -ldflags "-X zhaojunlucky/zgit/core.Version=1.0.${{ github.run_number }} -X zhaojunlucky/zgit/core.BuildDate=${build_date}" -o zgit_amd64 -v main.go
+        tar -czvf zgit-PR-${{ github.event.pull_request.number }}-1.0.${{ github.run_number }}.tar.gz zgit_amd64 zgit_arm64
+    - uses: actions/checkout@v4
+      with:
+        repository: zhaojunlucky/gh-action-script
+        path: gh-action-script
+        fetch-depth: 0
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        cache-dependency-path: 'gh-action-script/yarn.lock'
+    - name: artifacts_retention
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
+        GITHUB_PR_NUM: ${{ github.event.pull_request.number }}
+      run: |
+        cd gh-action-script
+        yarn install
+        node src/artifact/artifacts_retention.mjs
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: zgit-PR-${{ github.event.pull_request.number }}-1.0.${{ github.run_number }}.tar.gz
+        path: zgit-PR-${{ github.event.pull_request.number }}-1.0.${{ github.run_number }}.tar.gz
+        
+        

@@ -1,0 +1,1 @@
+go build -ldflags "-X zhaojunlucky/zgit/core.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)" -o zgit main.go

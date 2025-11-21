@@ -6,6 +6,7 @@ package cmd
 
 import (
 	"os"
+	"zhaojunlucky/zgit/core"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -26,6 +27,7 @@ Features:
   - Template-based commit message formatting
   - Force-pull for syncing after force-pushed branches
   - Repository-specific and global configuration support
+  - Pass-through for any other git commands
 
 Configuration:
   zgit looks for config.yaml in the current directory or ~/.zgit/config.yaml
@@ -39,7 +41,11 @@ Configuration:
 
 Commands:
   commit      - Commit with automatic ticket prefix
-  force-pull  - Force pull by recreating local branch from origin`,
+  force-pull  - Force pull by recreating local branch from origin
+  init        - Initialize zgit configuration
+  version     - Show version information
+  
+  Any other command will be passed directly to git`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		// Change to repo directory if specified
 		if repoDir != "" {
@@ -48,6 +54,30 @@ Commands:
 			}
 			log.Infof("changed to directory: %s", repoDir)
 		}
+	},
+	// Handle unknown subcommands by passing them to git
+	Args: cobra.ArbitraryArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		// If no args, show help
+		if len(args) == 0 {
+			return cmd.Help()
+		}
+		
+		// Check if it's a known subcommand
+		for _, c := range cmd.Commands() {
+			if c.Name() == args[0] {
+				// Let cobra handle it
+				return nil
+			}
+		}
+		
+		// Unknown command - pass to git
+		log.Infof("passing command to git: %v", args)
+		gitArgs := args
+		if err := core.RunGitCommand(gitArgs...); err != nil {
+			log.Fatalf("git command failed: %v", err)
+		}
+		return nil
 	},
 }
 

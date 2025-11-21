@@ -16,7 +16,9 @@ var versionCmd = &cobra.Command{
 	Short: "Print the version information",
 	Long:  `Print the version number and build date of zgit.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("zgit version %s\n", core.Version)
+		fmt.Println("ZGit: https://gundamz.net/zgit")
+		fmt.Println("Author: https://exia.dev")
+		fmt.Printf("ZGit version: %s\n", core.Version)
 		if core.BuildDate != "" {
 			fmt.Printf("Build date: %s\n", core.BuildDate)
 		}

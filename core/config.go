@@ -98,7 +98,7 @@ func LoadConfig() (*Config, error) {
 		log.Infof("try loading %s", cfgFilePath)
 		data, err := os.ReadFile(cfgFilePath)
 		if err != nil {
-			log.Warnf("failed to read %s: %v", cfgFilePath, err)
+			log.Debugf("failed to read %s: %v", cfgFilePath, err)
 			continue
 		}
 

@@ -16,7 +16,7 @@ import (
 
 // commitCmd represents the commit command
 var commitCmd = &cobra.Command{
-	Use:   "commit",
+	Use:   "commit [flags]...",
 	Short: "Commit changes with automatic ticket prefix from branch name",
 	Long: `Commit changes with automatic ticket extraction from branch name.
 
@@ -29,9 +29,26 @@ Example:
     zgit commit -m "fix bug"
   
   It will execute:
-    git commit -m "[JIRA-1234] fix bug"`,
+    git commit -m "[JIRA-1234] fix bug"
+
+  You can also pass other git flags:
+    zgit commit --amend
+    zgit commit -m "fix bug" --no-verify`,
+	Args: cobra.ArbitraryArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 		message, _ := cmd.Flags().GetString("message")
+		
+		// If -m flag is not provided, pass all args directly to git commit
+		if !cmd.Flags().Changed("message") {
+			log.Info("no -m flag provided, calling git commit directly with args")
+			gitArgs := append([]string{"commit"}, args...)
+			if err := core.RunGitCommand(gitArgs...); err != nil {
+				log.Fatalf("failed to commit: %v", err)
+			}
+			log.Info("commit successful")
+			return
+		}
+		
 		log.Infof("commit called with message: %s", message)
 		
 		pwd, err := os.Getwd()
@@ -85,8 +102,10 @@ Example:
 		commitMessage := buf.String()
 		log.Infof("rendered commit message: %s", commitMessage)
 
-		// Execute git commit
-		if err := core.RunGitCommand("commit", "-m", commitMessage); err != nil {
+		// Execute git commit with the formatted message and any additional args
+		gitArgs := []string{"commit", "-m", commitMessage}
+		gitArgs = append(gitArgs, args...)
+		if err := core.RunGitCommand(gitArgs...); err != nil {
 			log.Fatalf("failed to commit: %v", err)
 		}
 		log.Info("commit successful")
@@ -95,11 +114,7 @@ Example:
 
 func init() {
 	rootCmd.AddCommand(commitCmd)
-	commitCmd.Flags().StringP("message", "m", "", "Commit message")
-	err := commitCmd.MarkFlagRequired("message")
-	if err != nil {
-		log.Fatal(err)
-	}
+	commitCmd.Flags().StringP("message", "m", "", "Commit message (optional, if not provided, git commit will be called directly)")
 
 	// Here you will define your flags and configuration settings.
 

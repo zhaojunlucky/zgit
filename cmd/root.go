@@ -46,6 +46,9 @@ Commands:
   version     - Show version information
   
   Any other command will be passed directly to git`,
+	FParseErrWhitelist: cobra.FParseErrWhitelist{
+		UnknownFlags: true, // Allow unknown flags to pass through to git
+	},
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		// Change to repo directory if specified
 		if repoDir != "" {
@@ -84,10 +87,57 @@ Commands:
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
+	// Check if the first argument is an unknown command
+	// If so, pass everything directly to git to avoid flag parsing issues
+	if len(os.Args) > 1 {
+		// Handle -C or --repo-dir flag
+		argIdx := 1
+		if os.Args[argIdx] == "-C" || os.Args[argIdx] == "--repo-dir" {
+			if len(os.Args) > argIdx+1 {
+				repoDir = os.Args[argIdx+1]
+				argIdx += 2
+			}
+		}
+		
+		if argIdx < len(os.Args) {
+			subcommand := os.Args[argIdx]
+			
+			// Skip if it's a known flag or known command
+			if subcommand != "-h" && subcommand != "--help" && !isKnownCommand(subcommand) {
+				// Change to repo directory if specified
+				if repoDir != "" {
+					if err := os.Chdir(repoDir); err != nil {
+						log.Fatalf("failed to change to directory %s: %v", repoDir, err)
+					}
+					log.Infof("changed to directory: %s", repoDir)
+				}
+				
+				// Unknown command - pass everything to git
+				gitArgs := os.Args[argIdx:]
+				log.Infof("passing command to git: %v", gitArgs)
+				if err := core.RunGitCommand(gitArgs...); err != nil {
+					log.Fatalf("git command failed: %v", err)
+				}
+				return
+			}
+		}
+	}
+	
 	err := rootCmd.Execute()
 	if err != nil {
 		os.Exit(1)
 	}
+}
+
+// isKnownCommand checks if a command is a known zgit subcommand
+func isKnownCommand(cmd string) bool {
+	knownCommands := []string{"commit", "force-pull", "init", "version", "completion", "help"}
+	for _, known := range knownCommands {
+		if cmd == known {
+			return true
+		}
+	}
+	return false
 }
 
 func init() {

@@ -34,12 +34,28 @@ Example:
   You can also pass other git flags:
     zgit commit --amend
     zgit commit -m "fix bug" --no-verify`,
+	DisableFlagParsing: true,
 	Args: cobra.ArbitraryArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		message, _ := cmd.Flags().GetString("message")
+		// Parse args manually to find -m flag
+		var message string
+		var messageIndex int = -1
+		var otherArgs []string
+		
+		for i := 0; i < len(args); i++ {
+			if args[i] == "-m" || args[i] == "--message" {
+				if i+1 < len(args) {
+					message = args[i+1]
+					messageIndex = i
+					i++ // Skip the message value
+				}
+			} else if messageIndex == -1 || i < messageIndex || i > messageIndex+1 {
+				otherArgs = append(otherArgs, args[i])
+			}
+		}
 		
 		// If -m flag is not provided, pass all args directly to git commit
-		if !cmd.Flags().Changed("message") {
+		if messageIndex == -1 {
 			log.Info("no -m flag provided, calling git commit directly with args")
 			gitArgs := append([]string{"commit"}, args...)
 			if err := core.RunGitCommand(gitArgs...); err != nil {
@@ -104,7 +120,7 @@ Example:
 
 		// Execute git commit with the formatted message and any additional args
 		gitArgs := []string{"commit", "-m", commitMessage}
-		gitArgs = append(gitArgs, args...)
+		gitArgs = append(gitArgs, otherArgs...)
 		if err := core.RunGitCommand(gitArgs...); err != nil {
 			log.Fatalf("failed to commit: %v", err)
 		}
@@ -114,15 +130,4 @@ Example:
 
 func init() {
 	rootCmd.AddCommand(commitCmd)
-	commitCmd.Flags().StringP("message", "m", "", "Commit message (optional, if not provided, git commit will be called directly)")
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// commitCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// commitCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }

@@ -131,7 +131,7 @@ func Execute() {
 
 // isKnownCommand checks if a command is a known zgit subcommand
 func isKnownCommand(cmd string) bool {
-	knownCommands := []string{"commit", "force-pull", "init", "version", "completion", "help"}
+	knownCommands := []string{"commit", "force-pull", "init", "version", "completion", "help", "open", "pr"}
 	for _, known := range knownCommands {
 		if cmd == known {
 			return true

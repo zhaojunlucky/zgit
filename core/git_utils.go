@@ -25,6 +25,7 @@ func RunGitCommand(args ...string) error {
 	cmd := exec.Command("git", args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
 	return cmd.Run()
 }
 
@@ -45,11 +46,11 @@ func GetRepoFullName() (string, error) {
 	}
 
 	url := strings.TrimSpace(string(output))
-	
+
 	// Parse the URL to extract owner/repo
 	// Handle both SSH (git@github.com:owner/repo.git) and HTTPS (https://github.com/owner/repo.git)
 	var repoFullName string
-	
+
 	if strings.HasPrefix(url, "git@") {
 		// SSH format: git@github.com:owner/repo.git
 		parts := strings.Split(url, ":")
